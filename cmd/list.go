@@ -11,7 +11,13 @@ var listCmd = &cobra.Command{
 	Short: "List Todo tasks",
 	Run: func(cmd *cobra.Command, args []string) {
 		for i, task := range ReadTasks() {
-			fmt.Printf("%d - %s\n", i+1, task.Name)
+			var status string
+			if task.Completed {
+				status = "X"
+			} else {
+				status = " "
+			}
+			fmt.Printf("%s %d - %s\n", status, i+1, task.Name)
 		}
 	},
 }

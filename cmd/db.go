@@ -1,15 +1,16 @@
 package cmd
 
 import (
+	"encoding/binary"
 	"encoding/json"
-	"fmt"
+	"hash/fnv"
 	"log"
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/mitchellh/go-homedir"
 )
 
-const DB = "todo.db"
 const BUCKET_NAME = "todo-bucket"
 
 func ReadTasks() []Task {
@@ -38,31 +39,42 @@ func AddTask(task Task) {
 	}
 
 	inBucket(func(bucket *bolt.Bucket) error {
-		key := []byte(task.Name)
-		fmt.Println(key)
+		key := getKey(task.Name)
 		return bucket.Put(key, jsonb)
 	})
 }
 
 func RemoveTask(nb int) {
-	tasks := ReadTasks()
-	if nb > len(tasks) {
-		fmt.Println("No task #", nb)
-	}
-
-	task := tasks[nb-1]
+	task := getTask(nb)
 
 	inBucket(func(bucket *bolt.Bucket) error {
-		key := []byte(task.Name)
+		key := getKey(task.Name)
 		return bucket.Delete(key)
 	})
+}
 
-	task = tasks[nb-1]
+func CompleteTask(nb int) {
+	task := getTask(nb)
+	task.complete()
+	AddTask(task)
+}
+
+func getTask(nb int) Task {
+	tasks := ReadTasks()
+	nb--
+	if nb >= len(tasks) || nb < 0 {
+		log.Fatalf("No task #%d", nb)
+	}
+	return tasks[nb]
 }
 
 func getDB() *bolt.DB {
+	home, err := homedir.Dir()
+	if err != nil {
+		log.Fatal(err)
+	}
 	opts := &bolt.Options{Timeout: 1 * time.Second}
-	db, err := bolt.Open(DB, 0600, opts)
+	db, err := bolt.Open(home+"/.todo.rc", 0600, opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,4 +97,21 @@ func inBucket(f func(bucket *bolt.Bucket) error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func getKey(str string) []byte {
+	sum := getHash(str)
+	return toBytes(sum)
+}
+
+func getHash(str string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(str))
+	return h.Sum32()
+}
+
+func toBytes(i uint32) []byte {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, i)
+	return b
 }
