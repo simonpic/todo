@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"hash/fnv"
 	"log"
+	"path/filepath"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -74,7 +75,8 @@ func getDB() *bolt.DB {
 		log.Fatal(err)
 	}
 	opts := &bolt.Options{Timeout: 1 * time.Second}
-	db, err := bolt.Open(home+"/.todo.rc", 0600, opts)
+	dbPath := filepath.Join(home, ".todo.rc")
+	db, err := bolt.Open(dbPath, 0600, opts)
 	if err != nil {
 		log.Fatal(err)
 	}
